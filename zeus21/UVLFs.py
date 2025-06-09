@@ -7,6 +7,9 @@ UT Austin - June 2023
 
 Edited by Hector Afonso G. Cruz
 JHU - July 2024
+
+Bug fix by Emily Bregou
+UT Austin - June 2025
 """
 
 from . import cosmology
