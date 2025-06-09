@@ -7,6 +7,9 @@ UT Austin - June 2023
 
 Edited by Hector Afonso G. Cruz
 JHU - July 2024
+
+Bug fix by Emily Bregou
+UT Austin - June 2025
 """
 
 from . import cosmology
@@ -68,8 +71,8 @@ def UVLF_binned(Astro_Parameters,Cosmo_Parameters,HMF_interpolator, zcenter, zwi
     if(DUST_FLAG==True):
         currMUV2 = np.ones_like(currMUV)
         while(np.sum(np.abs((currMUV2-currMUV)/currMUV)) > 0.02):
-            currMUV = MUVbarlist + AUV(Astro_Parameters,zcenter,currMUV)
             currMUV2 = currMUV
+            currMUV = MUVbarlist + AUV(Astro_Parameters,zcenter,currMUV)
            
     
     MUVcuthi = MUVcenters +  MUVwidths/2.
