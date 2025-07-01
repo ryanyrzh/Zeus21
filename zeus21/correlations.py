@@ -40,11 +40,13 @@ class Correlations:
 
 
         self._xif = mcfit.P2xi(self._klistCF, l=0, lowring=True)
+        self._xif_v = mcfit.P2xi(self._klistCF, l=0, n=-2, lowring=True)
 
         self.WINDOWTYPE = 'TOPHAT'
         #options are 'TOPHAT', 'TOPHAT1D' and 'GAUSS' (for now). TOPHAT is calibrated for EPS, but GAUSS has less ringing
 
         self.xi_RR_CF = self.get_xi_R1R2_z0(Cosmo_Parameters)
+        self.xi_RR_CF_v = self.get_xi_R1R2_z0_v(Cosmo_Parameters)
         ClassCosmo.pars['xi_RR_CF'] = np.copy(self.xi_RR_CF) #store correlation function for gamma_III correction in SFRD
 
         ###HAC: Interpolated object for eta power spectrum
@@ -102,6 +104,21 @@ class Correlations:
         self.rlist_CF, xi_RR_CF = self._xif(_PkRR, extrap = False)
 
         return xi_RR_CF
+    
+    def get_xi_R1R2_z0_v(self, Cosmo_Parameters):
+        "Get correlation function of velocity, with smoothing and extrapolation to z=0."
+        
+        ###HAC: Broadcasted to improve efficiency
+        ###HAC: dim 0 is R1, dim 1 is R2, dim 2 is r, where R1 and R2 are smoothing radii and r is the argument of xi(r)
+        lengthRarray = Cosmo_Parameters.NRs
+        windowR1 = self.Window(self._klistCF.reshape(lengthRarray, 1, 1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
+        windowR2 = self.Window(self._klistCF.reshape(1, lengthRarray,1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
+        
+        _PkRR = np.array([[self._PklinCF]]) * windowR1 * windowR2
+        
+        self.rlist_CF, xi_RR_CF_v = self._xif_v(_PkRR, extrap = False)
+
+        return xi_RR_CF_v
         
     ###HAC: The next two are the same, but for
     def get_xiEta(self, Cosmo_Parameters, ClassCosmo):
