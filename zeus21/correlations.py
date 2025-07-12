@@ -40,13 +40,15 @@ class Correlations:
 
 
         self._xif = mcfit.P2xi(self._klistCF, l=0, lowring=True)
-        self._xif_v = mcfit.P2xi(self._klistCF, l=0, n=-2, lowring=True)
+        self._xif_j1 = mcfit.P2xi(self._klistCF, l=1, lowring=True)
 
         self.WINDOWTYPE = 'TOPHAT'
         #options are 'TOPHAT', 'TOPHAT1D' and 'GAUSS' (for now). TOPHAT is calibrated for EPS, but GAUSS has less ringing
 
         self.xi_RR_CF = self.get_xi_R1R2_z0(Cosmo_Parameters)
         self.xi_RR_CF_v = self.get_xi_R1R2_z0_v(Cosmo_Parameters)
+        self.xi_RR_CF_perp = self.get_xi_R1R2_z0_perp(Cosmo_Parameters)
+        self.xi_RR_CF_para = self.get_xi_R1R2_z0_para(Cosmo_Parameters)
         ClassCosmo.pars['xi_RR_CF'] = np.copy(self.xi_RR_CF) #store correlation function for gamma_III correction in SFRD
 
         ###HAC: Interpolated object for eta power spectrum
@@ -114,13 +116,39 @@ class Correlations:
         windowR1 = self.Window(self._klistCF.reshape(lengthRarray, 1, 1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
         windowR2 = self.Window(self._klistCF.reshape(1, lengthRarray,1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
         
-        _PkRR = np.array([[self._PklinCF]]) * windowR1 * windowR2
+        PklinCF_over_k2 = self._PklinCF / self._klistCF**2
+        _PkRR = np.array([[PklinCF_over_k2]]) * windowR1 * windowR2
         
-        self.rlist_CF, xi_RR_CF_v = self._xif_v(_PkRR, extrap = False)
+        self.rlist_CF, xi_RR_CF_v = self._xif(_PkRR, extrap = False)
 
         return xi_RR_CF_v
+    
+    def get_xi_R1R2_z0_perp(self, Cosmo_Parameters):
+        "Get correlation function of velocity perpendicular to the separation, "
+        "with smoothing and extrapolation to z=0."
         
-    ###HAC: The next two are the same, but for
+        ###HAC: Broadcasted to improve efficiency
+        ###HAC: dim 0 is R1, dim 1 is R2, dim 2 is r, where R1 and R2 are smoothing radii and r is the argument of xi(r)
+        lengthRarray = Cosmo_Parameters.NRs
+        windowR1 = self.Window(self._klistCF.reshape(lengthRarray, 1, 1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
+        windowR2 = self.Window(self._klistCF.reshape(1, lengthRarray,1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
+        
+        PklinCF_over_k3 = self._PklinCF / self._klistCF**3
+        _PkRR = np.array([[PklinCF_over_k3]]) * windowR1 * windowR2
+
+        self.rlist_CF, xi_RR_CF_perp = self._xif_j1(_PkRR, extrap = False)
+        xi_RR_CF_perp = np.real(-1j * xi_RR_CF_perp) / self.rlist_CF
+
+        return xi_RR_CF_perp
+    
+    def get_xi_R1R2_z0_para(self, Cosmo_Parameters):
+        "Get correlation function of velocity parallel to the separation, "
+        "with smoothing and extrapolation to z=0."
+        j_0_term = self.xi_RR_CF_v
+        j_1_term = self.xi_RR_CF_perp
+
+        return j_0_term - 2 * j_1_term
+
     def get_xiEta(self, Cosmo_Parameters, ClassCosmo):
         "Get correlation function of v^2 at z_drag (~1060 for LCDM parameters)"
         ##Warning: definitel check if beyond LCDM!
