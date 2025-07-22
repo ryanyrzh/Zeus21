@@ -345,6 +345,16 @@ def dgrowth_dz(CosmoParams, z):
     dzlist = zlist*0.001
     return (growth(CosmoParams, z+dzlist)-growth(CosmoParams, z-dzlist))/(2.0*dzlist)
 
+def Ddot(CosmoParams, z):
+    "Derivative of growth factor w.r.t. time, Ddot = dD/dt"
+    zlist = np.asarray([z]) if np.isscalar(z) else np.asarray(z)
+    alist = 1 / (1 + zlist)
+    dgrowth_zeus = dgrowth_dz(CosmoParams, z)
+
+    hubble = Hub(CosmoParams, z)
+    dgrowth_dtau = -dgrowth_zeus * hubble / alist
+    return dgrowth_dtau
+
 
 def redshift_of_chi(CosmoParams, z):
     "Returns z(chi) for any input comoving distance from today chi in Mpc"

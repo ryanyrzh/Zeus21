@@ -107,7 +107,7 @@ class Correlations:
 
         return xi_RR_CF
     
-    def get_xi_R1R2_z0_v(self, Cosmo_Parameters):
+    def get_xi_R1R2_z0_v(self, Cosmo_Parameters, z=0.001):
         "Get correlation function of velocity, with smoothing and extrapolation to z=0."
         
         ###HAC: Broadcasted to improve efficiency
@@ -118,12 +118,15 @@ class Correlations:
         
         PklinCF_over_k2 = self._PklinCF / self._klistCF**2
         _PkRR = np.array([[PklinCF_over_k2]]) * windowR1 * windowR2
+
         
         self.rlist_CF, xi_RR_CF_v = self._xif(_PkRR, extrap = False)
 
-        return xi_RR_CF_v
+        Ddot = cosmology.Ddot(Cosmo_Parameters, z)
+
+        return Ddot**2 * xi_RR_CF_v
     
-    def get_xi_R1R2_z0_perp(self, Cosmo_Parameters):
+    def get_xi_R1R2_z0_perp(self, Cosmo_Parameters, z=0.001):
         "Get correlation function of velocity perpendicular to the separation, "
         "with smoothing and extrapolation to z=0."
         
@@ -139,13 +142,15 @@ class Correlations:
         self.rlist_CF, xi_RR_CF_perp = self._xif_j1(_PkRR, extrap = False)
         xi_RR_CF_perp = np.real(-1j * xi_RR_CF_perp) / self.rlist_CF
 
-        return xi_RR_CF_perp
+        Ddot = cosmology.Ddot(Cosmo_Parameters, z)
+
+        return Ddot**2 * xi_RR_CF_perp
     
-    def get_xi_R1R2_z0_para(self, Cosmo_Parameters):
+    def get_xi_R1R2_z0_para(self, Cosmo_Parameters, z=0.001):
         "Get correlation function of velocity parallel to the separation, "
         "with smoothing and extrapolation to z=0."
-        j_0_term = self.xi_RR_CF_v
-        j_1_term = self.xi_RR_CF_perp
+        j_0_term = self.get_xi_R1R2_z0_v(Cosmo_Parameters, z)
+        j_1_term = self.get_xi_R1R2_z0_perp(Cosmo_Parameters, z)
 
         return j_0_term - 2 * j_1_term
 
