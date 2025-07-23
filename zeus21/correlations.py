@@ -56,6 +56,7 @@ class Correlations:
             P_eta_interp = interp1d(ClassCosmo.pars['k_eta'], ClassCosmo.pars['P_eta'], bounds_error = False, fill_value = 0)
             self._PkEtaCF = P_eta_interp(self._klistCF)
             self.xiEta_RR_CF = self.get_xiEta_R1R2(Cosmo_Parameters)
+            self.sigma_v = self.get_sigma_v(Cosmo_Parameters)
         else:
             self._PkEtaCF = np.zeros_like(self._PklinCF)
             self.xiEta_RR_CF = np.zeros_like(self.xi_RR_CF)
@@ -178,7 +179,31 @@ class Correlations:
         self.rlist_CF, xiEta_RR_CF = self._xif(_PkEtaRR, extrap = False)
 
         return xiEta_RR_CF
-        
+    
+    def get_sigma_v(self, Cosmo_Parameters, z=0.001):
+        '''
+        Velocity dispersion with smoothing
+        '''
+        lengthRarray = Cosmo_Parameters.NRs
+
+        windowR1 = self.Window(self._klistCF.reshape(lengthRarray, 1, 1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
+        windowR2 = self.Window(self._klistCF.reshape(1, lengthRarray,1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
+
+        # # With built-in PkEta function
+        # # TODO: Check what PkEta actually is
+        # k = self._klistCF
+        # Pvv = self._PkEtaCF
+
+        # Manual derivation of Pv from Pk
+        Ddot = cosmology.Ddot(Cosmo_Parameters, z)
+        Pk = self._PklinCF
+        k = self._klistCF
+        Pv = Ddot**2 * Pk
+
+        PvRR = Pv * windowR1 * windowR2
+        sigma_v_sq = np.trapezoid(PvRR, k) / (6 * np.pi**2)
+        return np.sqrt(sigma_v_sq)
+
 
 
 
