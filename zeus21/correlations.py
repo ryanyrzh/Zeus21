@@ -53,7 +53,10 @@ class Correlations:
             P_eta_interp = interp1d(ClassCosmo.pars['k_eta'], ClassCosmo.pars['P_eta'], bounds_error = False, fill_value = 0)
             self._PkEtaCF = P_eta_interp(self._klistCF)
             self.xiEta_RR_CF = self.get_xiEta_R1R2(Cosmo_Parameters)
-            self.xiEta_RR_CF_para, self.xiEta_RR_CF_perp = self.get_xiEta_R1R2_aniso(Cosmo_Parameters)
+            # aniso_mod
+            #TODO: consider separating based on ANISO_XI_ETA flag
+            self.xiEta_RR_CF_para, self.xiEta_RR_CF_perp = self.get_xiEta_R1R2_para_perp(Cosmo_Parameters)
+            self.xiEta_RR_CF_aniso = self.get_xiEta_R1R2_aniso(Cosmo_Parameters)
 
             # These are not normalized
             self.xi_RR_CF_v_old = self.get_xi_R1R2_z0_v(Cosmo_Parameters)
@@ -130,7 +133,7 @@ class Correlations:
 
         return Ddot**2 * xi_RR_CF_v
     
-    def get_xi_R1R2_z0_perp(self, Cosmo_Parameters, z=0.001, small_r_extrap=True):
+    def get_xi_R1R2_z0_perp(self, Cosmo_Parameters, z=0.001, small_r_extrap=True): # aniso_mod
         "Get correlation function of velocity perpendicular to the separation, "
         "with smoothing and extrapolation to z=0."
         
@@ -165,7 +168,7 @@ class Correlations:
 
         return Ddot**2 * xi_RR_CF_perp
     
-    def get_xi_R1R2_z0_para(self, Cosmo_Parameters, z=0.001):
+    def get_xi_R1R2_z0_para(self, Cosmo_Parameters, z=0.001): # aniso_mod
         "Get correlation function of velocity parallel to the separation, "
         "with smoothing and extrapolation to z=0."
         j_0_term = self.get_xi_R1R2_z0_v(Cosmo_Parameters, z)
@@ -198,7 +201,8 @@ class Correlations:
 
         return xiEta_RR_CF
     
-    def get_xiEta_R1R2_aniso(self, Cosmo_Parameters, z=0.001, small_r_extrap=True):
+    def get_xiEta_R1R2_para_perp(self, Cosmo_Parameters, z=0.001, small_r_extrap=True): # aniso_mod
+        "Normalized rho_para and rho_perp."
         lengthRarray = len(Cosmo_Parameters._Rtabsmoo)
         
         windowR1 = self.Window(self._klistCF.reshape(lengthRarray, 1, 1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
@@ -216,8 +220,9 @@ class Correlations:
         xi_RR_CF_perp = np.real(-1j * xi_RR_CF_perp) / self.rlist_CF
 
         if small_r_extrap: # Avoid ringing at small r
-             rlist_trunc = rlist_j1[20:] # 20 is somewhat arbitrary, might need to optimize
-             xi_perp_trunc = xi_RR_CF_perp[:, :, 20:]
+             cutoff_idx = 25 # somewhat arbitrary, might need to optimize
+             rlist_trunc = rlist_j1[cutoff_idx:] 
+             xi_perp_trunc = xi_RR_CF_perp[:, :, cutoff_idx:]
              # Straighten out the small-r behavior
              start_val = xi_perp_trunc[:, :, 0]
              interp_func = interp1d(rlist_trunc, xi_perp_trunc, 
@@ -239,6 +244,13 @@ class Correlations:
         xi_perp_normalized = xi_RR_CF_perp * Ddot**2 / sigma_v_sq
         xi_para_normalized = xi_v_normalized - 2 * xi_perp_normalized
         return xi_para_normalized, xi_perp_normalized
+        
+    def get_xiEta_R1R2_aniso(self, Cosmo_Parameters, z=0.001, small_r_extrap=True): # aniso_mod
+        "Mean-normalized covariance of eta_1 and eta_2."
+        xi_para_normalized, xi_perp_normalized = self.get_xiEta_R1R2_para_perp(Cosmo_Parameters, small_r_extrap=small_r_extrap)
+
+        xi_eta_aniso = 2/9 * (xi_para_normalized**2 + 2 * xi_perp_normalized**2)
+        return xi_eta_aniso
     
     def get_sigma_v(self, Cosmo_Parameters, z=0.001):
         '''
@@ -886,7 +898,7 @@ class Power_Spectra:
         return 1
         
         
-    def get_xi_Sum_2ExpEta(self, xiEta, etaCoeff1, etaCoeff2): # aniso_mod (main?)
+    def get_xi_Sum_2ExpEta(self, xiEta, etaCoeff1, etaCoeff2): # aniso_mod
         # Computes the correlation function of the VCB portion of the SFRD, expressed using sums of two exponentials
         # if rho(z1, x1) / rhobar = Ae^-b tilde(eta) + Ce^-d tilde(eta)
         # and rho(z2, x2) / rhobar = Fe^-g tilde(eta) + He^-k tilde(eta)
@@ -914,6 +926,41 @@ class Power_Spectra:
         
         return xiTotal
 
+    def get_xi_Sum_2ExpEta_aniso(self, xiEta_para, xiEta_perp, etaCoeff1, etaCoeff2): # aniso_mod
+        # Anisotropic version of the previous function
+        # Computes the correlation function of the VCB portion of the SFRD, expressed using sums of two exponentials
+        # if rho(z1, x1) / rhobar = Ae^-b tilde(eta) + Ce^-d tilde(eta)
+        # and rho(z2, x2) / rhobar = Fe^-g tilde(eta) + He^-k tilde(eta)
+        # then this computes <rho(z1, x1) * rho(z2, x2)> - <rho(z1, x1)> <rho(z2, x2)>
+        # Refer to eq. A12 in 2407.18294 for more details
+        
+        aa, bb, cc, dd = etaCoeff1
+        ff, gg, hh, kk = etaCoeff2
+        
+        normBB = ne.evaluate('(1+2*bb)**(3/2)')
+        normGG = ne.evaluate('(1+2*gg)**(3/2)')
+        normDD = ne.evaluate('(1+2*dd)**(3/2)')
+        normKK = ne.evaluate('(1+2*kk)**(3/2)')
+        
+        afBG = ne.evaluate('aa * ff / normBB / normGG')
+        ahBK = ne.evaluate('aa * hh / normBB / normKK')
+        cfDG = ne.evaluate('cc * ff / normDD / normGG')
+        chDK = ne.evaluate('cc * hh / normDD / normKK')
+
+        rho_para = xiEta_para
+        rho_perp = xiEta_perp #TODO: check if this is correct
+
+        xiU_afBG = ne.evaluate('(4 * bb * gg * (1 - rho_perp**2) - 2 * (bb + gg) + 1) ** (-1) * (4 * bb * gg * (1 - rho_para**2) - 2 * (bb + gg) + 1) ** (-1/2) * ((1 - 2 * bb) * (1 - 2 * gg)) ** (3/2) -1')
+        xiU_ahBK = ne.evaluate('(4 * bb * kk * (1 - rho_perp**2) - 2 * (bb + kk) + 1) ** (-1) * (4 * bb * kk * (1 - rho_para**2) - 2 * (bb + kk) + 1) ** (-1/2) * ((1 - 2 * bb) * (1 - 2 * kk)) ** (3/2) -1')
+        xiU_cfDG = ne.evaluate('(4 * dd * gg * (1 - rho_perp**2) - 2 * (dd + gg) + 1) ** (-1) * (4 * dd * gg * (1 - rho_para**2) - 2 * (dd + gg) + 1) ** (-1/2) * ((1 - 2 * dd) * (1 - 2 * gg)) ** (3/2) -1')
+        xiU_chDK = ne.evaluate('(4 * dd * kk * (1 - rho_perp**2) - 2 * (dd + kk) + 1) ** (-1) * (4 * dd * kk * (1 - rho_para**2) - 2 * (dd + kk) + 1) ** (-1/2) * ((1 - 2 * dd) * (1 - 2 * kk)) ** (3/2) -1')
+
+        xiNumerator  = ne.evaluate('afBG * xiU_afBG + ahBK * xiU_ahBK + cfDG * xiU_cfDG + chDK * xiU_chDK')
+        xiDenominator  = ne.evaluate('afBG + ahBK + cfDG + chDK')
+
+        xiTotal = ne.evaluate('xiNumerator / xiDenominator')
+        
+        return xiTotal
 
     def get_all_corrs_III(self, User_Parameters, Cosmo_Parameters, Correlations, T21_coefficients):
         "Returns the Pop III components of the correlation functions of all observables at each z in zintegral"
@@ -927,10 +974,17 @@ class Power_Spectra:
         corrdNL = Correlations.xi_RR_CF[np.ix_(_iRnonlinear,_iRnonlinear)]
         corrdNL[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrdNL[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
         corrdNL = corrdNL.reshape((1, *corrdNL.shape))
-
-        corrEtaNL = Correlations.xiEta_RR_CF[np.ix_(_iRnonlinear,_iRnonlinear)]
-        corrEtaNL[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrEtaNL[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
-        corrEtaNL = corrEtaNL.reshape(1, *corrEtaNL.shape)
+        if Cosmo_Parameters.ANISO_XI_ETA == False:
+            corrEtaNL = Correlations.xiEta_RR_CF[np.ix_(_iRnonlinear,_iRnonlinear)]
+            corrEtaNL[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrEtaNL[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
+            corrEtaNL = corrEtaNL.reshape(1, *corrEtaNL.shape)
+        else:
+            corrEtaNL_para = Correlations.xiEta_RR_CF_para[np.ix_(_iRnonlinear,_iRnonlinear)]
+            corrEtaNL_para[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrEtaNL_para[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
+            corrEtaNL_para = corrEtaNL_para.reshape(1, *corrEtaNL_para.shape)
+            corrEtaNL_perp = Correlations.xiEta_RR_CF_perp[np.ix_(_iRnonlinear,_iRnonlinear)]
+            corrEtaNL_perp[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrEtaNL_perp[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
+            corrEtaNL_perp = corrEtaNL_perp.reshape(1, *corrEtaNL_perp.shape)
 
 
         _coeffTx_units = T21_coefficients.coeff_Gammah_Tx_III #includes -10^40 erg/s/SFR normalizaiton and erg/K conversion factor
@@ -956,7 +1010,10 @@ class Power_Spectra:
         expGammaCorr = ne.evaluate('exp(gammaCorrdNL) - 1') # equivalent to np.exp(gammaTimesCorrdNL)-1.0
 
         if Cosmo_Parameters.USE_RELATIVE_VELOCITIES == True:
-            etaCorr_xa = self.get_xi_Sum_2ExpEta(corrEtaNL, vcbCoeffsR1, vcbCoeffsR2) # aniso_mod
+            if Cosmo_Parameters.ANISO_XI_ETA == False:
+                etaCorr_xa = self.get_xi_Sum_2ExpEta(corrEtaNL, vcbCoeffsR1, vcbCoeffsR2)
+            else: # aniso_mod
+                etaCorr_xa = self.get_xi_Sum_2ExpEta_aniso(corrEtaNL_para, corrEtaNL_perp, vcbCoeffsR1, vcbCoeffsR2)
             totalCorr = ne.evaluate('expGammaCorr * etaCorr_xa + expGammaCorr + etaCorr_xa - gammaCorrdNL') ###TO DO (linearized VCB flucts): - etaCorr_xa_lin #note that the Taylor expansion of the cross-term is 0 to linear order
         else:
             totalCorr = ne.evaluate('expGammaCorr - gammaCorrdNL') ###TO DO (linearized VCB flucts): - etaCorr_xa_lin #note that the Taylor expansion of the cross-term is 0 to linear order
@@ -987,7 +1044,10 @@ class Power_Spectra:
         coeffsXaTxALL = coeffzp2Tx * coeffmatrixxaTx
 
         corrdNLBIG = corrdNL[:,:, np.newaxis, :, :]
-        corrEtaNLBIG = corrEtaNL[:,:, np.newaxis, :, :]
+        if Cosmo_Parameters.ANISO_XI_ETA == False:
+            corrEtaNLBIG = corrEtaNL[:,:, np.newaxis, :, :]
+        else: # aniso_mod
+            corrEtaNLBIG_para, corrEtaNLBIG_perp = corrEtaNL_para[:,:, np.newaxis, :, :], corrEtaNL_perp[:,:, np.newaxis, :, :] # aniso_mod
 
         vcbCoeffsR1 = vcbCoeffsR1[:,:,:,:,:]
         vcbCoeffsR2 = np.transpose(vcbCoeffsR1, (0,3,4,1,2))
@@ -998,13 +1058,20 @@ class Power_Spectra:
 
         for ir in range(len(T21_coefficients.Rtabsmoo)):
             corrdNL = corrdNLBIG[:,:,:,:,ir]
-            corrEtaNL = corrEtaNLBIG[:,:,:,:,ir]
+            if Cosmo_Parameters.ANISO_XI_ETA == False:
+                corrEtaNL = corrEtaNLBIG[:,:,:,:,ir]
+            else: # aniso_mod
+                corrEtaNL_para = corrEtaNLBIG_para[:,:,:,:,ir]
+                corrEtaNL_perp = corrEtaNLBIG_perp[:,:,:,:,ir]
 
             gammaCorrdNL = ne.evaluate('gammamatrixR1R2 * corrdNL')
             expGammaCorrdNL = ne.evaluate('exp(gammaCorrdNL) - 1')
             
             if Cosmo_Parameters.USE_RELATIVE_VELOCITIES == True:
-                etaCorr_Tx = self.get_xi_Sum_2ExpEta(corrEtaNL, vcbCoeffsR1, vcbCoeffsR2)
+                if Cosmo_Parameters.ANISO_XI_ETA == False:
+                    etaCorr_Tx = self.get_xi_Sum_2ExpEta(corrEtaNL, vcbCoeffsR1, vcbCoeffsR2)
+                else: # aniso_mod
+                    etaCorr_Tx = self.get_xi_Sum_2ExpEta_aniso(corrEtaNL_para, corrEtaNL_perp, vcbCoeffsR1, vcbCoeffsR2)
                 totalCorr = ne.evaluate('expGammaCorrdNL * etaCorr_Tx + expGammaCorrdNL + etaCorr_Tx - gammaCorrdNL') ###TO DO (linearized VCB flucts): - etaCorr_xa_lin #note that the Taylor expansion of the cross-term is 0 to linear order
             else:
                 totalCorr = ne.evaluate('expGammaCorrdNL - gammaCorrdNL') ###TO DO (linearized VCB flucts): - etaCorr_xa_lin #note that the Taylor expansion of the cross-term is 0 to linear order
