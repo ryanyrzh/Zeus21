@@ -135,6 +135,7 @@ class Cosmo_Parameters:
         if self.USE_RELATIVE_VELOCITIES == True:
             self.sigma_vcb = ClassCosmo.pars['sigma_vcb']
             self.vcb_avg = ClassCosmo.pars['v_avg']
+            self.ANISO_XI_ETA = CosmoParams_input.ANISO_XI_ETA
         else:  #set but not to random values, just something sensible in case the user wants pop3 but not relvel
             self.sigma_vcb = 30.0
             self.vcb_avg = 27.5
