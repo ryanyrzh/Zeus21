@@ -56,7 +56,7 @@ class Correlations:
             # aniso_mod
             #TODO: consider separating based on ANISO_XI_ETA flag
             self.xiEta_RR_CF_para, self.xiEta_RR_CF_perp = self.get_xiEta_R1R2_para_perp(Cosmo_Parameters)
-            self.xiEta_RR_CF_aniso = self.get_xiEta_R1R2_aniso(Cosmo_Parameters)
+            self.xiEta_RR_CF_aniso_mnc = self.get_xiEta_R1R2_aniso_mnc(Cosmo_Parameters)
 
             # These are not normalized
             self.xi_RR_CF_v_old = self.get_xi_R1R2_z0_v(Cosmo_Parameters)
@@ -245,7 +245,7 @@ class Correlations:
         xi_para_normalized = xi_v_normalized - 2 * xi_perp_normalized
         return xi_para_normalized, xi_perp_normalized
         
-    def get_xiEta_R1R2_aniso(self, Cosmo_Parameters, z=0.001, small_r_extrap=True): # aniso_mod
+    def get_xiEta_R1R2_aniso_mnc(self, Cosmo_Parameters, z=0.001, small_r_extrap=True): # aniso_mod
         "Mean-normalized covariance of eta_1 and eta_2."
         xi_para_normalized, xi_perp_normalized = self.get_xiEta_R1R2_para_perp(Cosmo_Parameters, small_r_extrap=small_r_extrap)
 
@@ -948,7 +948,7 @@ class Power_Spectra:
         chDK = ne.evaluate('cc * hh / normDD / normKK')
 
         rho_para = xiEta_para
-        rho_perp = xiEta_perp #TODO: check if this is correct
+        rho_perp = xiEta_perp
 
         xiU_afBG = ne.evaluate('(4 * bb * gg * (1 - rho_perp**2) - 2 * (bb + gg) + 1) ** (-1) * (4 * bb * gg * (1 - rho_para**2) - 2 * (bb + gg) + 1) ** (-1/2) * ((1 - 2 * bb) * (1 - 2 * gg)) ** (3/2) -1')
         xiU_ahBK = ne.evaluate('(4 * bb * kk * (1 - rho_perp**2) - 2 * (bb + kk) + 1) ** (-1) * (4 * bb * kk * (1 - rho_para**2) - 2 * (bb + kk) + 1) ** (-1/2) * ((1 - 2 * bb) * (1 - 2 * kk)) ** (3/2) -1')
