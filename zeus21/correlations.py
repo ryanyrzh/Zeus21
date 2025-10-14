@@ -55,6 +55,11 @@ class Correlations:
             self.xiEta_RR_CF = self.get_xiEta_R1R2(Cosmo_Parameters)
             # aniso_mod
             #TODO: consider separating based on ANISO_XI_ETA flag
+            #Using native psi functions
+            self.rlist_xi = ClassCosmo.pars['r_xi']
+            self.xi_para = ClassCosmo.pars['xi_para']
+            self.xi_perp = ClassCosmo.pars['xi_perp']
+            # Constructed from scratch in this module
             self.xiEta_RR_CF_para, self.xiEta_RR_CF_perp = self.get_xiEta_R1R2_para_perp(Cosmo_Parameters)
             self.xiEta_RR_CF_aniso_mnc = self.get_xiEta_R1R2_aniso_mnc(Cosmo_Parameters)
 
