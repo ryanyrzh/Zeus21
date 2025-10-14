@@ -96,12 +96,18 @@ def runclass(CosmologyIn):
         kVelIntp = np.geomspace(1e-4, kMAX_VCB, 512)
         rVelIntp = 2 * np.pi / kVelIntp
         
+        # Computing the psi functions
         j0bessel = lambda x: np.sin(x)/x
+        j1bessel = lambda x: np.sin(x)/x**2 - np.cos(x)/x
         j2bessel = lambda x: (3 / x**2 - 1) * np.sin(x)/x - 3*np.cos(x)/x**2
         
-        psi0 = 1 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapz(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j0bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
-        psi2 = -2 / 3 / (sigma_vcb/constants.c_kms)**2 * np.trapz(kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp)) * j2bessel(kVelIntp * np.transpose([rVelIntp])), kVelIntp, axis = 1)
-        
+        psi_prefactor = 1 / (3 * (sigma_vcb/constants.c_kms)**2)
+        psi_integrand_prefactor = kVelIntp**2 / 2 / np.pi**2 * p_vcb_intp(np.log(kVelIntp))
+        rVelIntp_transpose = np.transpose([rVelIntp])
+        psi0 = 1 * psi_prefactor * np.trapz(psi_integrand_prefactor * j0bessel(kVelIntp * rVelIntp_transpose), kVelIntp, axis = 1)
+        psi1 = 1 * psi_prefactor * np.trapz(psi_integrand_prefactor * j1bessel(kVelIntp * rVelIntp_transpose), kVelIntp, axis = 1)
+        psi2 = -2 * psi_prefactor * np.trapz(psi_integrand_prefactor * j2bessel(kVelIntp * rVelIntp_transpose), kVelIntp, axis = 1)
+
         k_eta, P_eta = mcfit.xi2P(rVelIntp, l=0, lowring = True)((6 * psi0**2 + 3 * psi2**2), extrap = False)
         
         ClassCosmo.pars['k_eta'] = k_eta[P_eta > 0]
