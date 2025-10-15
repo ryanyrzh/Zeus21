@@ -113,9 +113,16 @@ def runclass(CosmologyIn):
 
         #aniso_mod
         #TODO: Separate with ANISO_XI_ETA flag?
-        ClassCosmo.pars['xi_para'] = psi0 - 2 * psi2
-        ClassCosmo.pars['xi_perp'] = psi0 + psi2
-        ClassCosmo.pars['r_xi'] = rVelIntp
+        ClassCosmo.pars['klist_psi'] = kVelIntp
+        ClassCosmo.pars['rlist_psi'] = rVelIntp
+        ClassCosmo.pars['psi_prefactor'] = psi_prefactor
+        ClassCosmo.pars['psi_integrand_prefactor'] = psi_integrand_prefactor
+        ClassCosmo.pars['j0_psi'] = j0bessel(kVelIntp * rVelIntp_transpose)
+        ClassCosmo.pars['j2_psi'] = j2bessel(kVelIntp * rVelIntp_transpose)
+
+        # ClassCosmo.pars['xi_para'] = psi0 - 2 * psi2
+        # ClassCosmo.pars['xi_perp'] = psi0 + psi2
+        
         
 #        print("HAC: Finished running CLASS a second time to get velocity transfer functions")
         
