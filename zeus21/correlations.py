@@ -976,7 +976,7 @@ class Power_Spectra:
         
         aa, bb, cc, dd = etaCoeff1
         ff, gg, hh, kk = etaCoeff2
-        
+
         normBB = ne.evaluate('(1+2*bb)**(3/2)')
         normGG = ne.evaluate('(1+2*gg)**(3/2)')
         normDD = ne.evaluate('(1+2*dd)**(3/2)')
@@ -990,10 +990,10 @@ class Power_Spectra:
         rho_para = xi_para
         rho_perp = xi_perp
 
-        xiU_afBG = ne.evaluate('(4 * bb * gg * (1 - rho_perp**2) - 2 * (bb + gg) + 1) ** (-1) * (4 * bb * gg * (1 - rho_para**2) - 2 * (bb + gg) + 1) ** (-1/2) * ((1 - 2 * bb) * (1 - 2 * gg)) ** (3/2) -1')
-        xiU_ahBK = ne.evaluate('(4 * bb * kk * (1 - rho_perp**2) - 2 * (bb + kk) + 1) ** (-1) * (4 * bb * kk * (1 - rho_para**2) - 2 * (bb + kk) + 1) ** (-1/2) * ((1 - 2 * bb) * (1 - 2 * kk)) ** (3/2) -1')
-        xiU_cfDG = ne.evaluate('(4 * dd * gg * (1 - rho_perp**2) - 2 * (dd + gg) + 1) ** (-1) * (4 * dd * gg * (1 - rho_para**2) - 2 * (dd + gg) + 1) ** (-1/2) * ((1 - 2 * dd) * (1 - 2 * gg)) ** (3/2) -1')
-        xiU_chDK = ne.evaluate('(4 * dd * kk * (1 - rho_perp**2) - 2 * (dd + kk) + 1) ** (-1) * (4 * dd * kk * (1 - rho_para**2) - 2 * (dd + kk) + 1) ** (-1/2) * ((1 - 2 * dd) * (1 - 2 * kk)) ** (3/2) -1')
+        xiU_afBG = ne.evaluate('(4 * bb * gg * (1 - rho_perp**2) + 2 * (bb + gg) + 1) ** (-1) * (4 * bb * gg * (1 - rho_para**2) + 2 * (bb + gg) + 1) ** (-1/2) * ((1 + 2 * bb) * (1 + 2 * gg)) ** (3/2) -1')
+        xiU_ahBK = ne.evaluate('(4 * bb * kk * (1 - rho_perp**2) + 2 * (bb + kk) + 1) ** (-1) * (4 * bb * kk * (1 - rho_para**2) + 2 * (bb + kk) + 1) ** (-1/2) * ((1 + 2 * bb) * (1 + 2 * kk)) ** (3/2) -1')
+        xiU_cfDG = ne.evaluate('(4 * dd * gg * (1 - rho_perp**2) + 2 * (dd + gg) + 1) ** (-1) * (4 * dd * gg * (1 - rho_para**2) + 2 * (dd + gg) + 1) ** (-1/2) * ((1 + 2 * dd) * (1 + 2 * gg)) ** (3/2) -1')
+        xiU_chDK = ne.evaluate('(4 * dd * kk * (1 - rho_perp**2) + 2 * (dd + kk) + 1) ** (-1) * (4 * dd * kk * (1 - rho_para**2) + 2 * (dd + kk) + 1) ** (-1/2) * ((1 + 2 * dd) * (1 + 2 * kk)) ** (3/2) -1')
 
         xiNumerator  = ne.evaluate('afBG * xiU_afBG + ahBK * xiU_ahBK + cfDG * xiU_cfDG + chDK * xiU_chDK')
         xiDenominator  = ne.evaluate('afBG + ahBK + cfDG + chDK')
