@@ -155,8 +155,8 @@ class Correlations:
         psi2 = -2 * psi_prefactor * np.trapz(psi_integrand_base * j2bessel(self._klistCF * r_transpose)[np.newaxis, np.newaxis, :, :], 
                                              self._klistCF, axis = -1)
         
-        xi_para_RR_CF = psi0 - 2 * psi2
-        xi_perp_RR_CF = psi0 + psi2
+        xi_para_RR_CF = psi0 + psi2
+        xi_perp_RR_CF = psi0 - 0.5 * psi2
 
         return xi_para_RR_CF, xi_perp_RR_CF
 
