@@ -46,36 +46,17 @@ class Correlations:
         self.xi_RR_CF = self.get_xi_R1R2_z0(Cosmo_Parameters)
         ClassCosmo.pars['xi_RR_CF'] = np.copy(self.xi_RR_CF) #store correlation function for gamma_III correction in SFRD
 
-        self.sigma_v = self.get_sigma_v(Cosmo_Parameters)
-
         ###HAC: Interpolated object for eta power spectrum
         if Cosmo_Parameters.USE_RELATIVE_VELOCITIES == True:
             P_eta_interp = interp1d(ClassCosmo.pars['k_eta'], ClassCosmo.pars['P_eta'], bounds_error = False, fill_value = 0)
             self._PkEtaCF = P_eta_interp(self._klistCF)
             self.xiEta_RR_CF = self.get_xiEta_R1R2(Cosmo_Parameters)
-
-            # aniso_mod
-            # TODO: consider separating based on ANISO_XI_ETA flag
-            # Ingredients for getting anisotropic xi's via naive integration
-            self._k_vcb = ClassCosmo.pars['k_vcb']
-            self._P_vcb = ClassCosmo.pars['P_vcb']
-            self.sigma_vcb = ClassCosmo.pars['sigma_vcb']
-
-            self._klist_psi = ClassCosmo.pars['klist_psi']
-            self._rlist_psi = ClassCosmo.pars['rlist_psi']
-            self._psi_prefactor = ClassCosmo.pars['psi_prefactor']
-            self._psi_integrand_prefactor = ClassCosmo.pars['psi_integrand_prefactor']
-            self._j0_psi = ClassCosmo.pars['j0_psi']
-            self._j2_psi = ClassCosmo.pars['j2_psi']
-            self.xi_RR_CF_para, self.xi_RR_CF_perp = self.get_xi_R1R2_para_perp(Cosmo_Parameters)
-
-            # Constructed from scratch in this module, innacurate P_vcb
-            self.xiEta_RR_CF_aniso_mnc = self.get_xiEta_R1R2_aniso_mnc(Cosmo_Parameters)
-
-            # These are not normalized
-            self.xi_RR_CF_v_old = self.get_xi_R1R2_z0_v(Cosmo_Parameters)
-            self.xi_RR_CF_perp_old = self.get_xi_R1R2_z0_perp(Cosmo_Parameters)
-            self.xi_RR_CF_para_old = self.get_xi_R1R2_z0_para(Cosmo_Parameters)
+            if Cosmo_Parameters.ANISO_XI_ETA == True: # aniso_mod
+                # Ingredients for getting anisotropic xi's via naive integration (more stable than mcfit with higher l)
+                self._k_vcb = ClassCosmo.pars['k_vcb']
+                self._P_vcb = ClassCosmo.pars['P_vcb']
+                self.sigma_vcb = ClassCosmo.pars['sigma_vcb']
+                self.xi_RR_CF_para, self.xi_RR_CF_perp = self.get_xi_R1R2_para_perp(Cosmo_Parameters)
         else:
             self._PkEtaCF = np.zeros_like(self._PklinCF)
             self.xiEta_RR_CF = np.zeros_like(self.xi_RR_CF)
@@ -127,68 +108,6 @@ class Correlations:
         self.rlist_CF, xi_RR_CF = self._xif(_PkRR, extrap = False)
 
         return xi_RR_CF
-    
-    def get_xi_R1R2_z0_v(self, Cosmo_Parameters, z=0.001):
-        "Get correlation function of velocity, with smoothing and extrapolation to z=0."
-        
-        ###HAC: Broadcasted to improve efficiency
-        ###HAC: dim 0 is R1, dim 1 is R2, dim 2 is r, where R1 and R2 are smoothing radii and r is the argument of xi(r)
-        lengthRarray = Cosmo_Parameters.NRs
-        windowR1 = self.Window(self._klistCF.reshape(lengthRarray, 1, 1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
-        windowR2 = self.Window(self._klistCF.reshape(1, lengthRarray,1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
-        
-        PklinCF_over_k2 = self._PklinCF / self._klistCF**2
-        _PkRR = np.array([[PklinCF_over_k2]]) * windowR1 * windowR2
-
-        
-        self.rlist_CF, xi_RR_CF_v = self._xif(_PkRR, extrap = False)
-
-        Ddot = cosmology.Ddot(Cosmo_Parameters, z)
-
-        return Ddot**2 * xi_RR_CF_v
-    
-    def get_xi_R1R2_z0_perp(self, Cosmo_Parameters, z=0.001, small_r_extrap=True): # aniso_mod
-        "Get correlation function of velocity perpendicular to the separation, "
-        "with smoothing and extrapolation to z=0."
-        
-        ###HAC: Broadcasted to improve efficiency
-        ###HAC: dim 0 is R1, dim 1 is R2, dim 2 is r, where R1 and R2 are smoothing radii and r is the argument of xi(r)
-        lengthRarray = Cosmo_Parameters.NRs
-        windowR1 = self.Window(self._klistCF.reshape(lengthRarray, 1, 1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
-        windowR2 = self.Window(self._klistCF.reshape(1, lengthRarray,1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
-        
-        PklinCF_over_k3 = self._PklinCF / self._klistCF**3
-        _PkRR = np.array([[PklinCF_over_k3]]) * windowR1 * windowR2
-
-        rlist_j1, xi_RR_CF_perp = self._xif_j1(_PkRR, extrap = False)
-        xi_RR_CF_perp = np.real(-1j * xi_RR_CF_perp) / self.rlist_CF
-
-        if small_r_extrap: # Avoid ringing at small r
-             rlist_trunc = rlist_j1[20:] # 20 is somewhat arbitrary, might need to optimize
-             xi_perp_trunc = xi_RR_CF_perp[:, :, 20:]
-             # Straighten out the small-r behavior
-             start_val = xi_perp_trunc[:, :, 0]
-             interp_func = interp1d(rlist_trunc, xi_perp_trunc, 
-                          kind='cubic', bounds_error=False, fill_value=start_val)
-        else:
-            rlist_j1 = np.insert(rlist_j1, 0, 0)
-            xi_RR_CF_perp = np.insert(xi_RR_CF_perp, 0, 1, axis=2)
-            interp_func = interp1d(rlist_j1, xi_RR_CF_perp, 
-                          kind='cubic', bounds_error=False, fill_value="extrapolate")
-        # We take the rlist generated by the j0 transform as the standard grid
-        xi_RR_CF_perp = interp_func(self.rlist_CF)
-
-        Ddot = cosmology.Ddot(Cosmo_Parameters, z)
-
-        return Ddot**2 * xi_RR_CF_perp
-    
-    def get_xi_R1R2_z0_para(self, Cosmo_Parameters, z=0.001): # aniso_mod
-        "Get correlation function of velocity parallel to the separation, "
-        "with smoothing and extrapolation to z=0."
-        j_0_term = self.get_xi_R1R2_z0_v(Cosmo_Parameters, z)
-        j_1_term = self.get_xi_R1R2_z0_perp(Cosmo_Parameters, z)
-
-        return j_0_term - 2 * j_1_term
 
     def get_xiEta(self, Cosmo_Parameters, ClassCosmo):
         "Get correlation function of v^2 at z_drag (~1060 for LCDM parameters)"
@@ -240,77 +159,6 @@ class Correlations:
         xi_perp_RR_CF = psi0 + psi2
 
         return xi_para_RR_CF, xi_perp_RR_CF
-
-
-    # def get_xiEta_R1R2_para_perp(self, Cosmo_Parameters, z=0.001, small_r_extrap=True): # aniso_mod
-    #     "Normalized rho_para and rho_perp."
-    #     lengthRarray = len(Cosmo_Parameters._Rtabsmoo)
-        
-    #     windowR1 = self.Window(self._klistCF.reshape(lengthRarray, 1, 1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
-    #     windowR2 = self.Window(self._klistCF.reshape(1, lengthRarray,1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
-        
-    #     # Compute j0 term
-    #     PklinCF_over_k2 = self._PklinCF / self._klistCF**2
-    #     _Pk_2_RR = np.array([[PklinCF_over_k2]]) * windowR1 * windowR2
-    #     self.rlist_CF, xi_RR_CF_v = self._xif(_Pk_2_RR, extrap = False)
-
-    #     # Compute j1 term
-    #     PklinCF_over_k3 = self._PklinCF / self._klistCF**3
-    #     _Pk_3_RR = np.array([[PklinCF_over_k3]]) * windowR1 * windowR2
-    #     rlist_j1, xi_RR_CF_perp = self._xif_j1(_Pk_3_RR, extrap = False)
-    #     xi_RR_CF_perp = np.real(-1j * xi_RR_CF_perp) / self.rlist_CF
-
-    #     if small_r_extrap: # Avoid ringing at small r
-    #          cutoff_idx = 25 # somewhat arbitrary, might need to optimize
-    #          rlist_trunc = rlist_j1[cutoff_idx:] 
-    #          xi_perp_trunc = xi_RR_CF_perp[:, :, cutoff_idx:]
-    #          # Straighten out the small-r behavior
-    #          start_val = xi_perp_trunc[:, :, 0]
-    #          interp_func = interp1d(rlist_trunc, xi_perp_trunc, 
-    #                       kind='cubic', bounds_error=False, fill_value=start_val)
-    #     else:
-    #         rlist_j1 = np.insert(rlist_j1, 0, 0)
-    #         xi_RR_CF_perp = np.insert(xi_RR_CF_perp, 0, 1, axis=2)
-    #         interp_func = interp1d(rlist_j1, xi_RR_CF_perp, 
-    #                       kind='cubic', bounds_error=False, fill_value="extrapolate")
-
-    #     xi_RR_CF_perp = interp_func(self.rlist_CF)
-        
-    #     # Normalize
-    #     Ddot = cosmology.Ddot(Cosmo_Parameters, z)
-    #     sigma_v_sq = self.sigma_v ** 2
-    #     sigma_v_sq = sigma_v_sq[:, :, np.newaxis]
-
-    #     xi_v_normalized = xi_RR_CF_v * Ddot**2 / sigma_v_sq
-    #     xi_perp_normalized = xi_RR_CF_perp * Ddot**2 / sigma_v_sq
-    #     xi_para_normalized = xi_v_normalized - 2 * xi_perp_normalized
-    #     return xi_para_normalized, xi_perp_normalized
-        
-    def get_xiEta_R1R2_aniso_mnc(self, Cosmo_Parameters): # aniso_mod
-        "Mean-normalized covariance of eta_1 and eta_2."
-        xi_eta_aniso_mnc = 2/9 * (self.xi_RR_CF_para**2 + 2 * self.xi_RR_CF_perp**2)
-        return xi_eta_aniso_mnc
-    
-    def get_sigma_v(self, Cosmo_Parameters, z=0.001):
-        '''
-        Velocity dispersion with smoothing
-        May delete, because sigma_vcb is already calculated in cosmology
-        '''
-        lengthRarray = Cosmo_Parameters.NRs
-
-        windowR1 = self.Window(self._klistCF.reshape(lengthRarray, 1, 1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
-        windowR2 = self.Window(self._klistCF.reshape(1, lengthRarray,1), Cosmo_Parameters._Rtabsmoo.reshape(1, 1, lengthRarray))
-
-        # Manual derivation of Pv from Pk
-        Ddot = cosmology.Ddot(Cosmo_Parameters, z)
-        Pk = self._PklinCF
-        k = self._klistCF
-        Pv = Ddot**2 * Pk
-
-        PvRR = Pv * windowR1 * windowR2
-        sigma_v_sq = np.trapezoid(PvRR, k) / (6 * np.pi**2)
-        return np.sqrt(sigma_v_sq)
-
 
 
 
@@ -730,7 +578,7 @@ class Power_Spectra:
         zGreaterMatrix100[np.isnan(zGreaterMatrix100)] = 100
 
         _iRnonlinear = np.arange(Cosmo_Parameters.indexmaxNL)
-        corrdNL = Correlations.xi_RR_CF[np.ix_(_iRnonlinear,_iRnonlinear)] # aniso_mod
+        corrdNL = Correlations.xi_RR_CF[np.ix_(_iRnonlinear,_iRnonlinear)]
         #for R<RNL fix at RNL, avoids corelations blowing up at low R
         corrdNL[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrdNL[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
         corrdNL = corrdNL.reshape((1, *corrdNL.shape))
@@ -835,7 +683,7 @@ class Power_Spectra:
         zGreaterMatrix100[np.isnan(zGreaterMatrix100)] = 100
 
         _iRnonlinear = np.arange(Cosmo_Parameters.indexmaxNL)
-        corrdNL = Correlations.xi_RR_CF[np.ix_(_iRnonlinear,_iRnonlinear)] # aniso_mod
+        corrdNL = Correlations.xi_RR_CF[np.ix_(_iRnonlinear,_iRnonlinear)]
         #for R<RNL fix at RNL, avoids corelations blowing up at low R
         corrdNL[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrdNL[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
         corrdNL = corrdNL.reshape((1, *corrdNL.shape))
@@ -938,7 +786,7 @@ class Power_Spectra:
         return 1
         
         
-    def get_xi_Sum_2ExpEta(self, xiEta, etaCoeff1, etaCoeff2): # aniso_mod
+    def get_xi_Sum_2ExpEta(self, xiEta, etaCoeff1, etaCoeff2):
         # Computes the correlation function of the VCB portion of the SFRD, expressed using sums of two exponentials
         # if rho(z1, x1) / rhobar = Ae^-b tilde(eta) + Ce^-d tilde(eta)
         # and rho(z2, x2) / rhobar = Fe^-g tilde(eta) + He^-k tilde(eta)
