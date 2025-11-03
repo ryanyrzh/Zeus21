@@ -902,6 +902,7 @@ class Power_Spectra:
                 etaCorr_xa = self.get_xi_Sum_2ExpEta(corrEtaNL, vcbCoeffsR1, vcbCoeffsR2)
             else: # aniso_mod
                 etaCorr_xa = self.get_xi_Sum_2ExpEta_aniso(corrNL_para, corrNL_perp, vcbCoeffsR1, vcbCoeffsR2)
+            self._etaCorr_xa = etaCorr_xa
             totalCorr = ne.evaluate('expGammaCorr * etaCorr_xa + expGammaCorr + etaCorr_xa - gammaCorrdNL') ###TO DO (linearized VCB flucts): - etaCorr_xa_lin #note that the Taylor expansion of the cross-term is 0 to linear order
         else:
             totalCorr = ne.evaluate('expGammaCorr - gammaCorrdNL') ###TO DO (linearized VCB flucts): - etaCorr_xa_lin #note that the Taylor expansion of the cross-term is 0 to linear order
