@@ -158,6 +158,10 @@ class Correlations:
         xi_para_RR_CF = psi0 + psi2
         xi_perp_RR_CF = psi0 - 0.5 * psi2
 
+        # Normalize them
+        xi_para_RR_CF /= np.max(np.abs(xi_para_RR_CF))
+        xi_perp_RR_CF /= np.max(np.abs(xi_perp_RR_CF))
+
         return xi_para_RR_CF, xi_perp_RR_CF
 
 
@@ -864,6 +868,8 @@ class Power_Spectra:
         corrdNL = corrdNL.reshape((1, *corrdNL.shape))
         if Cosmo_Parameters.ANISO_XI_ETA == False:
             corrEtaNL = Correlations.xiEta_RR_CF[np.ix_(_iRnonlinear,_iRnonlinear)]
+            # test normalize this
+            corrEtaNL /= np.max(corrEtaNL) * 3/2
             corrEtaNL[0:Cosmo_Parameters.indexminNL,0:Cosmo_Parameters.indexminNL] = corrEtaNL[Cosmo_Parameters.indexminNL,Cosmo_Parameters.indexminNL]
             corrEtaNL = corrEtaNL.reshape(1, *corrEtaNL.shape)
         else:
