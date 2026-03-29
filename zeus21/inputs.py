@@ -74,7 +74,7 @@ class Cosmo_Parameters_Input:
 
     def __init__(self, omegab = 0.0223828, omegac = 0.1201075, h_fid = 0.67810, As = 2.100549e-09, ns = 0.9660499, 
                  tau_fid = 0.05430842, kmax_CLASS = 500., zmax_CLASS = 50.,zmin_CLASS = 5., Flag_emulate_21cmfast = False, 
-                 USE_RELATIVE_VELOCITIES = False, HMF_CHOICE= "ST", ANISO_XI_ETA = False):
+                 USE_RELATIVE_VELOCITIES = False, HMF_CHOICE= "ST", ANISO_XI_ETA = False, CORRECTED_XI_ETA = False):
 
         self.omegab = omegab
         self.omegac = omegac
@@ -97,9 +97,12 @@ class Cosmo_Parameters_Input:
         self.HMF_CHOICE = HMF_CHOICE #which HMF functional form we use.
         #options are "ST" the classic  Sheth-Tormen (f(nu)), "Yung" for the Tinker08 (f(sigma)) calibrated to Yung+23. Default ST
 
-        # aniso_mod
+        # ----- aniso_mod -----
         self.ANISO_XI_ETA = ANISO_XI_ETA #whether to include anisotropy in velocity correlations
         #False is standard xi_eta(r), True distinguishes between xi_eta_para(r) and xi_eta_perp(r)
+
+        self.CORRECTED_XI_ETA = CORRECTED_XI_ETA #whether to use xi_eta = (2 * xi_eta_perp(r)**2 + xi_eta_para(r)**2) * 2 / 9
+        # ----- aniso_mod -----
 
 
 class Cosmo_Parameters:
@@ -136,6 +139,7 @@ class Cosmo_Parameters:
             self.sigma_vcb = ClassCosmo.pars['sigma_vcb']
             self.vcb_avg = ClassCosmo.pars['v_avg']
             self.ANISO_XI_ETA = CosmoParams_input.ANISO_XI_ETA
+            self.CORRECTED_XI_ETA = CosmoParams_input.CORRECTED_XI_ETA
         else:  #set but not to random values, just something sensible in case the user wants pop3 but not relvel
             self.sigma_vcb = 30.0
             self.vcb_avg = 27.5
