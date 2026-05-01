@@ -25,6 +25,20 @@ Currently you can find tutorials for:
   <li>PopIII stars, and how they affect the cosmic-dawn 21-cm signal. </li>
 </ul>
 
+## Model Versions
+
+The cosmology and correlations modules have both a baseline and a v2 implementation. You can select them explicitly by importing the versioned namespaces:
+
+```
+import zeus21
+
+cosmo_v1 = zeus21.cosmology
+corr_v1 = zeus21.correlations
+
+cosmo_v2 = zeus21.cosmology_v2
+corr_v2 = zeus21.correlations_v2
+```
+
 ## Installation
 
 You can download and install this package by doing:
