@@ -1,10 +1,13 @@
 pytest
-numpy
-scipy
+numpy==1.26.4
+matplotlib
+scipy==1.17.1
 mcfit
 numexpr
-astropy
+astropy==6.0.0
 powerbox
 pyfftw
 sphinx
 myst_parser
+classy
+tqdm
